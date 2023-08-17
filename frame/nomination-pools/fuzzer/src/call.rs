@@ -26,6 +26,7 @@
 use frame_support::{
 	assert_ok,
 	traits::{Currency, GetCallName, UnfilteredDispatchable},
+	dispatch::{GetDispatchInfo, PostDispatchInfo}
 };
 use honggfuzz::fuzz;
 use pallet_nomination_pools::{
@@ -195,15 +196,19 @@ impl RewardAgent {
 		let origin = RuntimeOrigin::signed(42);
 		assert_ok!(PoolsCall::<T>::claim_payout {}.dispatch_bypass_filter(origin));
 		let post = Balances::free_balance(&42);
-
+		let dispatch_info = pools::Call::<T>::claim_payout {}.get_dispatch_info();
+		let post_dispatch_weight_info = PostDispatchInfo::calc_unspent(&PostDispatchInfo::from(()),&dispatch_info.clone());
 		let income = post - pre;
 		log::info!(
-			target: "reward-agent", "🤖 CLAIM: actual: {}, expected: {}",
+			target: "reward-agent", "🤖 CLAIM: actual: {}, expected: {}, postDispatchWeight: {}",
 			income,
 			self.expected_reward,
+			post_dispatch_weight_info.ref_time()
 		);
 		assert_eq_error_rate!(income, self.expected_reward, 10);
 		self.expected_reward = 0;
+		assert_eq!(post_dispatch_weight_info.ref_time(), 0);
+
 	}
 }
 
